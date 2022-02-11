@@ -1,0 +1,270 @@
+---
+title: "maps"
+author: "Daniel Muzyka"
+date: "2/9/2022"
+output: html_document
+---
+
+```{r start}
+#load libraries
+
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(leaflet.extras)
+library(ggplot2)
+library(ggmap)
+library(RgoogleMaps)
+library(gmapsdistance)
+library(stringr)
+library(tidyr)
+library(tidyverse)
+library(ggmap)
+library(gmapsdistance)
+library(knitr)
+library(shinyWidgets)
+library(googleway)
+
+```
+
+```{r}
+#other people will need to get their own API key
+api_key <- "your api key here"
+
+
+#import data
+setwd("C:/Users/Danny/Downloads/")
+mtn_data <- read.csv("mountain_info.csv")
+unl_mtn_data <- mtn_data %>% filter(access == "Unlimited")
+not_unl_mtn_data <- mtn_data %>% filter(access != "Unlimited")
+
+#setup data for API use
+mtn_data$latlon <- paste0(mtn_data$latitude,"+",mtn_data$longitude)
+
+```
+
+
+
+
+```{r}
+#test out the API
+
+#find coordinates for our start point - tested a few formats
+res <- google_places(search_string = "schweizter mountain",
+                     key = api_key)
+res <- google_places(search_string = "Detroit",
+                     key = api_key)
+address <- google_places(search_string = "15609 E Sprague Ave, spokane valley",
+                     key = api_key)
+
+#Extract long and lat from origin
+want <- data.frame(
+  lat = res$results$geometry$location$lat,
+  lon = res$results$geometry$location$lng,
+  latlon =paste0(res$results$geometry$location$lat,"+",res$results$geometry$location$lng),
+  formatted_address = res$results$formatted_address,
+  place_id = res$results$place_id
+)
+
+#Set start and end points
+origin<-c(want$latlon)
+#filter step can be removed once I fill out data set
+filtered <- filter(mtn_data,latlon != "NA+NA")
+destination<-c(filtered$latlon)
+
+#get results
+results <- gmapsdistance(
+origin = origin,
+destination = destination,
+mode = "driving",
+key=api_key)
+
+```
+
+
+
+```{r}
+#Map in shiny. Would like to stratify the groups in Ikon_unl[imited], Ikon_not_unl, Epic_unl, Epic_not_unl
+#that way i could supress and unsupress only not unlimited resorts with the third check box
+# Load libraries
+library("leaflet")
+
+ui <- shinyUI(fluidPage(
+  sidebarLayout(
+  sidebarPanel(
+    checkboxInput("Ikon", "Ikon", value = TRUE),
+    checkboxInput("Epic", "Epic", value = TRUE ),
+    checkboxInput("Unl", "Unlimited Resorts Only", value = FALSE )
+  ),
+  mainPanel(leafletOutput("map"))),
+   br(),
+    searchInput(
+      inputId = "search", label = "Enter your Origin",
+      placeholder = "Type Here",
+      btnSearch = icon("search"),
+      btnReset = icon("remove"),
+      width = "450px"
+    ),
+    br(),
+    tableOutput("res")
+))
+
+
+
+server <- shinyServer(function(input, output, session) {
+  
+
+
+
+  output$map <- renderLeaflet(
+    leaflet() %>%
+  # add ocean basemap
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+
+  
+  # focus map in a certain area / zoom level
+  setView(lng = -99, lat = 45, zoom = 3.4)
+  )
+
+
+    observeEvent(input$Ikon, {
+
+    proxy <- leafletProxy('map')
+
+    if (input$Ikon) {
+      proxy %>%    
+          addCircleMarkers(data = unl_mtn_data[unl_mtn_data$pass == 'IKON', ], ~longitude, ~latitude,
+                   weight = 0.5,
+                   col = 'black', 
+                   fillColor = 'blue',
+                   radius = 4, 
+                   fillOpacity = 0.9, 
+                   stroke = T, 
+                   label=unl_mtn_data[unl_mtn_data$pass == 'IKON', ]$mtn,
+                   labelOptions(interactive=TRUE),
+                   group = 'Ikon_unl',
+                   clusterId = 'Ikon_unl') %>% 
+        
+          addCircleMarkers(data = not_unl_mtn_data[not_unl_mtn_data$pass == 'IKON', ], ~longitude, ~latitude,
+                   weight = 0.5,
+                   col = 'black', 
+                   fillColor = 'blue',
+                   radius = 4, 
+                   fillOpacity = 0.9, 
+                   stroke = T, 
+                   label=not_unl_mtn_data[not_unl_mtn_data$pass == 'IKON', ]$mtn,
+                   labelOptions(interactive=TRUE),
+                   group = 'Ikon_not_unl',
+                   clusterId = 'Ikon_not_unl')
+          
+    }
+
+    if (!input$Ikon) {
+      proxy %>% clearGroup('Ikon_unl') %>% clearGroup('Ikon_not_unl')
+    }
+
+  })
+  
+        observeEvent(input$Epic, {
+
+    proxy <- leafletProxy('map')
+
+    if (input$Epic) {
+      proxy %>%        
+        addCircleMarkers(data = unl_mtn_data[unl_mtn_data$pass == 'EPIC',], ~longitude, ~latitude,
+                   weight = 0.5,
+                   col = 'black', 
+                   fillColor = 'red',
+                   radius = 4, 
+                   fillOpacity = 0.9, 
+                   stroke = T, 
+                   label=unl_mtn_data[unl_mtn_data$pass == 'EPIC', ]$mtn,
+                   labelOptions(interactive=TRUE),
+                   group = 'Epic_unl',
+                   clusterId = 'Epic_unl') %>%        
+        addCircleMarkers(data = not_unl_mtn_data[not_unl_mtn_data$pass == 'EPIC',], ~longitude, ~latitude,
+                   weight = 0.5,
+                   col = 'black', 
+                   fillColor = 'red',
+                   radius = 4, 
+                   fillOpacity = 0.9, 
+                   stroke = T, 
+                   label=not_unl_mtn_data[not_unl_mtn_data$pass == 'EPIC', ]$mtn,
+                   labelOptions(interactive=TRUE),
+                   group = 'Epic_not_unl',
+                   clusterId = 'Epic_not_unl')
+    }
+
+    if (!input$Epic) {
+      proxy %>% clearGroup('Epic_unl') %>% clearGroup('Epic_not_unl')
+    }
+
+  })
+        #Add in unlimited filter
+       observeEvent(input$Unl, {
+        proxy <- leafletProxy('map')
+        if (input$Unl) {
+          proxy %>% hideGroup('Ikon_not_unl') %>% hideGroup('Epic_not_unl')
+        }
+        
+        if (!input$Unl) {
+          proxy %>% showGroup('Ikon_not_unl') %>% showGroup('Epic_not_unl')
+        }
+       })
+
+
+result <- google_places(search_string = "San Francisco",
+                     key = api_key)
+
+#Extract long and lat from origin
+want <- data.frame(
+  lat = result$results$geometry$location$lat,
+  lon = result$results$geometry$location$lng,
+  latlon =paste0(result$results$geometry$location$lat,"+",result$results$geometry$location$lng),
+  formatted_address = result$results$formatted_address,
+  place_id = result$results$place_id
+)
+ 
+#Set start and end points
+origin<-c(want$latlon)
+#filter step can be removed once I fill out data set
+filtered <- filter(mtn_data,latlon != "NA+NA")
+destination<-c(filtered$latlon)
+
+#get results
+results <- gmapsdistance(
+origin = origin,
+destination = destination,
+mode = "driving",
+key=api_key)
+
+Time = results$Time %>%
+  gather(destination, time, -or) %>%
+  mutate(time_minutes = round(time / 60.0, digits = 0)) 
+
+Distance = results$Distance %>% 
+  gather(destination, distance, -or) %>% 
+  mutate(distance_miles = round(distance*0.000621371, digits=1)) 
+  
+Status = results$Status %>% 
+  gather(destination, status, -or)
+
+Distance$destination <- str_remove(Distance$destination,"Distance.")
+Time$destination <- str_remove(Time$destination,"Time.")
+Status$destination <- str_remove(Status$destination,"status.")
+
+results2 <- full_join(Time,Distance,by=c("destination","or")) %>% full_join(Status,by=c("destination","or")) %>% left_join(.,mtn_data,by = c("destination" = "latlon"))
+
+
+closest2 <- slice_min(results2,order_by=time_minutes, n=10) %>% select(mtn, distance_miles, time_minutes, pass, access, acreage)
+
+
+output$res <- renderTable({closest2})
+})
+
+shinyApp(ui, server)
+
+
+```
+
+

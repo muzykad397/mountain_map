@@ -1,7 +1,7 @@
 ---
 title: "maps"
 author: "Daniel Muzyka"
-date: "2/9/2022"
+date: "3/2/2022"
 output: html_document
 ---
 
@@ -29,12 +29,11 @@ library(googleway)
 
 ```{r}
 #other people will need to get their own API key
-api_key <- "your api key here"
+api_key <- api_key # <-Your API key here!
 
 
-#import data
-setwd("C:/Users/Danny/Downloads/")
-mtn_data <- read.csv("mountain_info.csv")
+#import data directly from Github
+mtn_data <- read.csv("https://raw.githubusercontent.com/muzykad397/mountain_map/main/data/mountain_info.csv")
 unl_mtn_data <- mtn_data %>% filter(access == "Unlimited")
 not_unl_mtn_data <- mtn_data %>% filter(access != "Unlimited")
 
@@ -85,7 +84,7 @@ key=api_key)
 
 ```{r}
 #Map in shiny. Would like to stratify the groups in Ikon_unl[imited], Ikon_not_unl, Epic_unl, Epic_not_unl
-#that way i could supress and unsupress only not unlimited resorts with the third check box
+#that way i could suppress and un-suppress only not unlimited resorts with the third check box
 # Load libraries
 library("leaflet")
 

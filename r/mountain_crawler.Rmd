@@ -1,0 +1,55 @@
+---
+title: " Mountain Crawler"
+author: "Daniel Muzyka"
+date: "3/28/2022"
+output: html_document
+---
+# Crwaling up some Mountains' Stats
+
+This program will crawl onthesnow.com to populate the mountain stats that I am too lazy to hand code into my data set because I want to act like a true Data Scientist.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("Rcrawler")
+```
+
+## Crawling
+
+Coming soon!
+
+This section will somehow use my existing data set to determine which webpages @ onthesnow.com contain the mountain stats I desire
+```{r}
+
+```
+
+
+## Extracting from specific webpages
+
+This section was my very first proof of concept that I can retrieve the information I want.
+
+Success! Now I need to parse info so I can cleanly merge onto my existing data set.
+
+
+```{r cars}
+#Specify the Elements of the webpage that I would like to retrieve
+Elements <- c(".styles_box__1sXJN", ".styles_box__1xP75", ".styles_box__1j4nK", ".styles_elevation__2L-EV", ".styles_box__1iaJy")
+
+#Trying it out for Mammoth Mountain
+mammoth <- ContentScraper(Url = "https://www.onthesnow.com/california/mammoth-mountain-ski-area/ski-resort",
+CssPatterns = Elements, astext = TRUE)
+
+mammoth
+
+#Trying on Crystal Mountain. Are the elements the same on for each webpage? YES! That makes this easier.
+crystal <- ContentScraper(Url = "https://www.onthesnow.com/washington/crystal-mountain-wa/ski-resort",
+CssPatterns = Elements, astext = TRUE)
+
+crystal
+```
+## Parsing info
+
+Coming soon! It's 12pm and I have an interview tomorrow. Time to quit before I go too deep.
+
+```{r}
+
+```

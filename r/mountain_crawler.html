@@ -176,15 +176,89 @@ pre code {
 <p>This program will crawl onthesnow.com to populate the mountain stats that I am too lazy to hand code into my data set because I want to act like a true Data Scientist.</p>
 <div id="crawling" class="section level2">
 <h2>Crawling</h2>
-<p>Coming soon!</p>
-<p>This section will somehow use my existing data set to determine which webpages @ onthesnow.com contain the mountain stats I desire</p>
+<div id="investigating" class="section level3">
+<h3>Investigating</h3>
+<p>I already know the website I will use for data extraction is <a href="https://www.onthesnow.com" class="uri">https://www.onthesnow.com</a></p>
+<p>Crawling the entire website would likely take a few hours so I need to narrow my scope.</p>
+<p>First thing I did was look at all of the links from the main page.</p>
+<p>I see link #3 has a subfolder for “ski-resort”. Based on this plus my own knowledge of using the site, I think using the phrase “ski-resort” should help me narrow my search results</p>
+<pre class="r"><code>page_links &lt;-LinkExtractor(url=&quot;https://www.onthesnow.com&quot;)
+
+head(page_links[[&quot;InternalLinks&quot;]], n=10)</code></pre>
+<pre><code>##  [1] &quot;https://www.onthesnow.com/&quot;                    
+##  [2] &quot;https://www.onthesnow.com/skireport&quot;           
+##  [3] &quot;https://www.onthesnow.com/ski-resort&quot;          
+##  [4] &quot;https://www.onthesnow.com/news/&quot;               
+##  [5] &quot;https://www.onthesnow.com/epic-pass/skireport&quot; 
+##  [6] &quot;https://www.onthesnow.com/ikon-pass/skireport&quot; 
+##  [7] &quot;https://www.onthesnow.com/colorado/skireport&quot;  
+##  [8] &quot;https://www.onthesnow.com/california/skireport&quot;
+##  [9] &quot;https://www.onthesnow.com/utah/skireport&quot;      
+## [10] &quot;https://www.onthesnow.com/vermont/skireport&quot;</code></pre>
+<p>Looking more closely at the <a href="https://www.onthesnow.com/ski-resort" class="uri">https://www.onthesnow.com/ski-resort</a> subfolder my suspicion appears to be confirmed I will proceed with ski-resort as a filtering criteria</p>
+<pre class="r"><code>page_links2&lt;-LinkExtractor(url=&quot;https://www.onthesnow.com/ski-resort&quot;)
+
+head(page_links2[[&quot;InternalLinks&quot;]], n=10)</code></pre>
+<pre><code>##  [1] &quot;https://www.onthesnow.com/&quot;                                  
+##  [2] &quot;https://www.onthesnow.com/skireport&quot;                         
+##  [3] &quot;https://www.onthesnow.com/ski-resort&quot;                        
+##  [4] &quot;https://www.onthesnow.com/news/&quot;                             
+##  [5] &quot;https://www.onthesnow.com/colorado/aspen-snowmass/ski-resort&quot;
+##  [6] &quot;https://www.onthesnow.com/colorado/aspen-snowmass/reviews&quot;   
+##  [7] &quot;https://www.onthesnow.com/colorado/telluride/ski-resort&quot;     
+##  [8] &quot;https://www.onthesnow.com/colorado/telluride/reviews&quot;        
+##  [9] &quot;https://www.onthesnow.com/utah/deer-valley-resort/ski-resort&quot;
+## [10] &quot;https://www.onthesnow.com/utah/deer-valley-resort/reviews&quot;</code></pre>
+</div>
+<div id="generating-my-list" class="section level3">
+<h3>Generating my list</h3>
+<p>I am now attempting to crawl the website but limiting my scope my using the CrawlUrlfilter = “ski-resort” This means the crawler will only visit pages containing “ski-resort” in the URL</p>
+<p>Based on my own previous knowledge I also included a keyword filter for “overview” The keyword filter will instruct the crawler to only download info for pages containing the keyword overview I know that the place I normally view mountain stats is on the overview section so this should limit my results I also included a KeywordsAccuracy threshold of 95% and a MaxDepth of 5 levels to save time (based test runs)</p>
+<pre class="r"><code>Rcrawler(Website = &quot;https://www.onthesnow.com/ski-resort/&quot;, 
+         crawlUrlfilter=&quot;ski-resort&quot;, 
+         KeywordsFilter = c(&quot;overview&quot;), KeywordsAccuracy =95,
+         MaxDepth =5)</code></pre>
+</div>
+<div id="first-clean-up" class="section level3">
+<h3>First clean up</h3>
+<p>Visually inspecting my results I noticed some Urls end in HTMl. I had a suspicion these were duplicates, so I arranged the data to confirm</p>
+<p>My round about approach was to flag obs with .html, create a new Url with .html removed, then sort and keep only the distnct new Urls. I then checked and found one Url with a .html was in fact unqiue. (see check3)</p>
+<p>Either way, my check2 data set has the list that is sufficient to capture necessary webpages.</p>
+<pre class="r"><code>#create  new and sorted data set to QC
+check &lt;- INDEX %&gt;% arrange(.,Url)
+
+#flag obs that contain (end in) &quot;.html&quot;
+check$html &lt;- str_detect(check$Url,&quot;.html&quot;)
+#create a new Url with the .html removed
+check$Url2 &lt;-  str_replace_all(check$Url,&quot;.html&quot;,&quot;&quot;)
+
+#with the .html removed, are the resulting Urls unique or duplicates?
+check2 &lt;- check %&gt;% arrange(Url, html) %&gt;% distinct(Url2, .keep_all = TRUE) 
+
+#only one of the Urls containing .html holds unqiue information
+check3 &lt;- check2 %&gt;%  filter(., html==TRUE)
+
+#The list of original Urls in check2 contains sufficient records so I will pass this to a new data set
+Urls &lt;- select(check2, Url)
+
+head(Urls)</code></pre>
+<pre><code>##                                                              Url
+## 1      http://www.onthesnow.com/alaska/alyeska-resort/ski-resort
+## 2 http://www.onthesnow.com/alaska/eaglecrest-ski-area/ski-resort
+## 3    http://www.onthesnow.com/alaska/hilltop-ski-area/ski-resort
+## 4    http://www.onthesnow.com/alberta/castle-mountain/ski-resort
+## 5        http://www.onthesnow.com/alberta/lake-louise/ski-resort
+## 6       http://www.onthesnow.com/alberta/marmot-basin/ski-resort</code></pre>
+<p>At this point I might want to merge the Urls against my existing list, or maybe save that after I pull down data</p>
+<p>First thought are to remove any mountain/ski area/resort wording from the join criteria. Most likely will need a fuzzy match function, what fun!</p>
+</div>
 </div>
 <div id="extracting-from-specific-webpages" class="section level2">
 <h2>Extracting from specific webpages</h2>
 <p>This section was my very first proof of concept that I can retrieve the information I want.</p>
 <p>Success! Now I need to parse info so I can cleanly merge onto my existing data set.</p>
 <pre class="r"><code>#Specify the Elements of the webpage that I would like to retrieve
-Elements &lt;- c(&quot;.styles_box__1sXJN&quot;, &quot;.styles_box__1xP75&quot;, &quot;.styles_box__1j4nK&quot;, &quot;.styles_elevation__2L-EV&quot;, &quot;.styles_box__1iaJy&quot;)
+Elements &lt;- c(&quot;.style_title__7Rks8&quot;, &quot;.styles_box__1sXJN&quot;, &quot;.styles_box__1xP75&quot;, &quot;.styles_box__1j4nK&quot;, &quot;.styles_elevation__2L-EV&quot;, &quot;.styles_box__1iaJy&quot;)
 
 #Trying it out for Mammoth Mountain
 mammoth &lt;- ContentScraper(Url = &quot;https://www.onthesnow.com/california/mammoth-mountain-ski-area/ski-resort&quot;,
@@ -192,18 +266,21 @@ CssPatterns = Elements, astext = TRUE)</code></pre>
 <pre><code>## 1..</code></pre>
 <pre class="r"><code>mammoth</code></pre>
 <pre><code>## [[1]]
-## [1] &quot;Average Snowfall84\&quot;53\&quot;35\&quot;18\&quot;0\&quot;30\&quot;Nov70\&quot;Dec66\&quot;Jan54\&quot;Feb50\&quot;Mar25\&quot;Apr9\&quot;May0\&quot;Jun&quot;
+## [1] &quot;Premier PartnerMammoth Mountain Ski ResortWebsite800.MAMMOTH&quot;
 ## 
 ## [[2]]
-## [1] &quot;15%Beginners Runs48%Intermediate Runs24%Advanced Runs13%Expert Runs150Runs in Total3 miLongest Run3500 acSkiable Terrain700 acSnow Making&quot;
+## [1] &quot;Average Snowfall84\&quot;53\&quot;35\&quot;18\&quot;0\&quot;30\&quot;Nov70\&quot;Dec66\&quot;Jan54\&quot;Feb50\&quot;Mar25\&quot;Apr9\&quot;May0\&quot;Jun&quot;
 ## 
 ## [[3]]
-## [1] &quot;3Gondolas &amp; Trams2High Speed Sixes9High Speed Quads1Quad Chairs6Triple Chairs4Double Chairs&quot;
+## [1] &quot;15%Beginners Runs48%Intermediate Runs24%Advanced Runs13%Expert Runs150Runs in Total3 miLongest Run3500 acSkiable Terrain700 acSnow Making&quot;
 ## 
 ## [[4]]
-## [1] &quot;Elevation11053&#39;Summit3100&#39;Vertical Drop7953&#39;Base&quot;
+## [1] &quot;3Gondolas &amp; Trams2High Speed Sixes9High Speed Quads1Quad Chairs6Triple Chairs4Double Chairs&quot;
 ## 
 ## [[5]]
+## [1] &quot;Elevation11053&#39;Summit3100&#39;Vertical Drop7953&#39;Base&quot;
+## 
+## [[6]]
 ## [1] &quot;October 29, 20212021/10/29Projected OpeningMay 30, 20222022/05/30Projected ClosingN.A.Projected Days Open260Days Open Last Year69Years Open400\&quot;Average Snowfall&quot;</code></pre>
 <pre class="r"><code>#Trying on Crystal Mountain. Are the elements the same on for each webpage? YES! That makes this easier.
 crystal &lt;- ContentScraper(Url = &quot;https://www.onthesnow.com/washington/crystal-mountain-wa/ski-resort&quot;,
@@ -211,18 +288,21 @@ CssPatterns = Elements, astext = TRUE)</code></pre>
 <pre><code>## 1..</code></pre>
 <pre class="r"><code>crystal</code></pre>
 <pre><code>## [[1]]
-## [1] &quot;Average Snowfall134\&quot;84\&quot;56\&quot;28\&quot;0\&quot;23\&quot;Nov111\&quot;Dec91\&quot;Jan86\&quot;Feb60\&quot;Mar35\&quot;Apr2\&quot;May0\&quot;Jun&quot;
+## [1] &quot;Crystal Mountain Ski Resort&quot;
 ## 
 ## [[2]]
-## [1] &quot;8%Beginners Runs31%Intermediate Runs32%Advanced Runs29%Expert Runs86Runs in Total2.5 miLongest Run2600 acSkiable Terrain10 acSnow Making&quot;
+## [1] &quot;Average Snowfall134\&quot;84\&quot;56\&quot;28\&quot;0\&quot;23\&quot;Nov111\&quot;Dec91\&quot;Jan86\&quot;Feb60\&quot;Mar35\&quot;Apr2\&quot;May0\&quot;Jun&quot;
 ## 
 ## [[3]]
-## [1] &quot;1Gondolas &amp; Trams2High Speed Sixes2High Speed Quads1Quad Chairs2Triple Chairs2Double Chairs1Surface Lifts&quot;
+## [1] &quot;8%Beginners Runs31%Intermediate Runs32%Advanced Runs29%Expert Runs86Runs in Total2.5 miLongest Run2600 acSkiable Terrain10 acSnow Making&quot;
 ## 
 ## [[4]]
-## [1] &quot;Elevation7012&#39;Summit3100&#39;Vertical Drop4400&#39;Base&quot;
+## [1] &quot;1Gondolas &amp; Trams2High Speed Sixes2High Speed Quads1Quad Chairs2Triple Chairs2Double Chairs1Surface Lifts&quot;
 ## 
 ## [[5]]
+## [1] &quot;Elevation7012&#39;Summit3100&#39;Vertical Drop4400&#39;Base&quot;
+## 
+## [[6]]
 ## [1] &quot;December 04, 20212021/12/04Projected OpeningMay 08, 20222022/05/08Projected Closing142Projected Days OpenN.A.Days Open Last Year60Years Open486\&quot;Average Snowfall&quot;</code></pre>
 </div>
 <div id="parsing-info" class="section level2">

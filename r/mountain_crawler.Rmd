@@ -11,16 +11,85 @@ This program will crawl onthesnow.com to populate the mountain stats that I am t
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library("Rcrawler")
+library("tidyverse")
 ```
 
 ## Crawling
 
-Coming soon!
+### Investigating 
+I already know the website I will use for data extraction is https://www.onthesnow.com
 
-This section will somehow use my existing data set to determine which webpages @ onthesnow.com contain the mountain stats I desire
+Crawling the entire website would likely take a few hours so I need to narrow my scope. 
+
+First thing I did was look at all of the links from the main page. 
+
+I see link #3 has a subfolder for "ski-resort". Based on this plus my own knowledge of using the site, 
+I think using the phrase "ski-resort" should help me narrow my search results
 ```{r}
+page_links <-LinkExtractor(url="https://www.onthesnow.com")
+
+head(page_links[["InternalLinks"]], n=10)
+```
+Looking more closely at the https://www.onthesnow.com/ski-resort subfolder my suspicion appears to be confirmed
+I will proceed with ski-resort as a filtering criteria
+```{r}
+page_links2<-LinkExtractor(url="https://www.onthesnow.com/ski-resort")
+
+head(page_links2[["InternalLinks"]], n=10)
 
 ```
+
+### Generating my list 
+
+I am now attempting to crawl the website but limiting my scope my using the CrawlUrlfilter = "ski-resort"
+  This means the crawler will only visit pages containing "ski-resort" in the URL
+  
+Based on my own previous knowledge I also included a keyword filter for "overview" 
+  The keyword filter will instruct the crawler to only download info for pages containing the keyword overview
+  I know that the place I normally view mountain stats is on the overview section so this should limit my results
+  I also included a KeywordsAccuracy threshold of 95% and a MaxDepth of 5 levels to save time (based test runs)
+```{r, results='hide'}
+
+Rcrawler(Website = "https://www.onthesnow.com/ski-resort/", 
+         crawlUrlfilter="ski-resort", 
+         KeywordsFilter = c("overview"), KeywordsAccuracy =95,
+         MaxDepth =5)
+
+```
+
+### First clean up
+
+Visually inspecting my results I noticed some Urls end in HTMl. I had a suspicion these were duplicates,
+so I arranged the data to confirm
+
+My round about approach was to flag obs with .html, create a new Url with .html removed, then sort and keep 
+only the distnct new Urls. I then checked and found one Url with a .html was in fact unqiue. (see check3)
+
+Either way, my check2 data set has the list that is sufficient to capture necessary webpages.
+```{r}
+#create  new and sorted data set to QC
+check <- INDEX %>% arrange(.,Url)
+
+#flag obs that contain (end in) ".html"
+check$html <- str_detect(check$Url,".html")
+#create a new Url with the .html removed
+check$Url2 <-  str_replace_all(check$Url,".html","")
+
+#with the .html removed, are the resulting Urls unique or duplicates?
+check2 <- check %>% arrange(Url, html) %>% distinct(Url2, .keep_all = TRUE) 
+
+#only one of the Urls containing .html holds unqiue information
+check3 <- check2 %>%  filter(., html==TRUE)
+
+#The list of original Urls in check2 contains sufficient records so I will pass this to a new data set
+Urls <- select(check2, Url)
+
+head(Urls)
+```
+
+At this point I might want to merge the Urls against my existing list, or maybe save that after I pull down data
+
+First thought are to remove any mountain/ski area/resort wording from the join criteria. Most likely will need a fuzzy match function, what fun!
 
 
 ## Extracting from specific webpages
@@ -32,7 +101,7 @@ Success! Now I need to parse info so I can cleanly merge onto my existing data s
 
 ```{r cars}
 #Specify the Elements of the webpage that I would like to retrieve
-Elements <- c(".styles_box__1sXJN", ".styles_box__1xP75", ".styles_box__1j4nK", ".styles_elevation__2L-EV", ".styles_box__1iaJy")
+Elements <- c(".style_title__7Rks8", ".styles_box__1sXJN", ".styles_box__1xP75", ".styles_box__1j4nK", ".styles_elevation__2L-EV", ".styles_box__1iaJy")
 
 #Trying it out for Mammoth Mountain
 mammoth <- ContentScraper(Url = "https://www.onthesnow.com/california/mammoth-mountain-ski-area/ski-resort",

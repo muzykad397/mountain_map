@@ -212,7 +212,7 @@ server <- shinyServer(function(input, output, session) {
        })
 
 
-result <- google_places(search_string = "San Francisco",
+result <- google_places(search_string = "Salt Lake City",
                      key = api_key)
 
 #Extract long and lat from origin
@@ -255,7 +255,8 @@ Status$destination <- str_remove(Status$destination,"status.")
 results2 <- full_join(Time,Distance,by=c("destination","or")) %>% full_join(Status,by=c("destination","or")) %>% left_join(.,mtn_data,by = c("destination" = "latlon"))
 
 
-closest2 <- slice_min(results2,order_by=time_minutes, n=10) %>% select(mtn, distance_miles, time_minutes, pass, access, acreage)
+closest2 <- slice_min(results2,order_by=time_minutes, n=10) %>% select(mtn, distance_miles, time_minutes, pass, access#, acreage
+                                                                       )
 
 
 output$res <- renderTable({closest2})
